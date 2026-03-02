@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, text
 # 1. CONFIGURACIÓN DE PÁGINA Y CONEXIÓN A BASE DE DATOS
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Sistema Dual v9.2 (Descarga Segura)",
+    page_title="SIGED",
     page_icon="🎓", 
     layout="wide"
 )

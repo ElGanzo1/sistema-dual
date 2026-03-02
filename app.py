@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # 🚀 AQUI VA TU CONTRASEÑA DE POSTGRESQL 🚀
-CADENA_CONEXION = 'postgresql://neondb_owner:npg_9kFgEaf7coKM@ep-plain-feather-ai45b1hi-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require'
+CADENA_CONEXION = st.secrets["CONEXION_BD"]
 engine = create_engine(CADENA_CONEXION)
 
 # ---------------------------------------------------------

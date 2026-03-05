@@ -41,6 +41,7 @@ if not st.session_state['logueado']:
             if st.button("Ingresar", use_container_width=True, type="primary"):
                 usuarios_validos = {
                     "admin": {"pass": "1234", "rol": "editor", "carreras": ["TODAS"]},
+                    "MKMRDUAL": {"pass": "siged2026MKMR", "rol": "editor", "carreras": ["TODAS"]},
                     "director": {"pass": "escuela2026", "rol": "editor", "carreras": ["TODAS"]},
                     "coord_merca": {
                         "pass": "merca123", 

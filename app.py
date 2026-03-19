@@ -99,7 +99,8 @@ def cargar_datos():
         map_maestros = {'carrera': 'Carrera', 'cuatrimestre': 'Cuatrimestre', 'nombre_materia': 'Nombre_Materia', 'nombre_maestro': 'Nombre_Maestro'}
         df_maestros.rename(columns=map_maestros, inplace=True)
 
-        map_calif = {'matricula': 'Matricula', 'nombre_completo': 'Nombre_Completo', 'cuatrimestre': 'Cuatrimestre', 'nombre_maestro': 'Nombre_Maestro', 'materia': 'Materia', 's1': 'S1', 's2': 'S2', 's3': 'S3', 's4': 'S4', 's5': 'S5', 's6': 'S6', 's7': 'S7', 's8': 'S8', 's9': 'S9', 'u1': 'U1', 'u2': 'U2', 'u3': 'U3', 'promedio_final': 'Promedio_Final'}
+        # AGREGAMOS DE LA s10 A LA s15 AQUÍ
+        map_calif = {'matricula': 'Matricula', 'nombre_completo': 'Nombre_Completo', 'cuatrimestre': 'Cuatrimestre', 'nombre_maestro': 'Nombre_Maestro', 'materia': 'Materia', 's1': 'S1', 's2': 'S2', 's3': 'S3', 's4': 'S4', 's5': 'S5', 's6': 'S6', 's7': 'S7', 's8': 'S8', 's9': 'S9', 's10': 'S10', 's11': 'S11', 's12': 'S12', 's13': 'S13', 's14': 'S14', 's15': 'S15', 'u1': 'U1', 'u2': 'U2', 'u3': 'U3', 'promedio_final': 'Promedio_Final'}
         df_calif.rename(columns=map_calif, inplace=True)
 
         df_maestros_completo = pd.merge(
@@ -155,7 +156,6 @@ if seleccion == "📊 Ver Resumen General":
 
     st.divider()
     
-    # --- LA MAGIA DE LA SEGURIDAD ESTÁ AQUÍ ---
     if "TODAS" in carreras_permitidas:
         st.subheader("📥 Exportación Global (Modo Seguro)")
         st.write("Descarga el historial completo de calificaciones de todas las carreras. Esta acción NO borra ningún registro.")
@@ -270,7 +270,8 @@ else:
                         (df_calif['Materia'] == materia_activa)
                     ]
                     notas_actuales = {}
-                    for i in range(1, 10):
+                    # AHORA REVISA HASTA LA SEMANA 15
+                    for i in range(1, 16):
                         col_name = f"S{i}"
                         if not calif_existente.empty and col_name in calif_existente.columns:
                             try:
@@ -281,31 +282,37 @@ else:
                         else:
                             notas_actuales[col_name] = 0.0
 
-                    tab_u1, tab_u2, tab_u3 = st.tabs(["U1", "U2", "U3"])
+                    tab_u1, tab_u2, tab_u3 = st.tabs(["U1 (Sem 1-5)", "U2 (Sem 6-10)", "U3 (Sem 11-15)"])
                     nuevas_notas = {}
                     
                     with tab_u1:
-                        c1, c2, c3 = st.columns(3)
-                        nuevas_notas['S1'] = c1.number_input("Semana 1", 0.0, 10.0, notas_actuales['S1'], key="s1", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S2'] = c2.number_input("Semana 2", 0.0, 10.0, notas_actuales['S2'], key="s2", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S3'] = c3.number_input("Semana 3", 0.0, 10.0, notas_actuales['S3'], key="s3", disabled=not puede_editar_este_alumno)
-                        prom_u1 = (nuevas_notas['S1'] + nuevas_notas['S2'] + nuevas_notas['S3']) / 3
+                        c1, c2, c3, c4, c5 = st.columns(5)
+                        nuevas_notas['S1'] = c1.number_input("Sem 1", 0.0, 10.0, notas_actuales['S1'], key="s1", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S2'] = c2.number_input("Sem 2", 0.0, 10.0, notas_actuales['S2'], key="s2", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S3'] = c3.number_input("Sem 3", 0.0, 10.0, notas_actuales['S3'], key="s3", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S4'] = c4.number_input("Sem 4", 0.0, 10.0, notas_actuales['S4'], key="s4", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S5'] = c5.number_input("Sem 5", 0.0, 10.0, notas_actuales['S5'], key="s5", disabled=not puede_editar_este_alumno)
+                        prom_u1 = (nuevas_notas['S1'] + nuevas_notas['S2'] + nuevas_notas['S3'] + nuevas_notas['S4'] + nuevas_notas['S5']) / 5
                         st.info(f"📊 Prom U1: {prom_u1:.2f}")
 
                     with tab_u2:
-                        c4, c5, c6 = st.columns(3)
-                        nuevas_notas['S4'] = c4.number_input("Semana 4", 0.0, 10.0, notas_actuales['S4'], key="s4", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S5'] = c5.number_input("Semana 5", 0.0, 10.0, notas_actuales['S5'], key="s5", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S6'] = c6.number_input("Semana 6", 0.0, 10.0, notas_actuales['S6'], key="s6", disabled=not puede_editar_este_alumno)
-                        prom_u2 = (nuevas_notas['S4'] + nuevas_notas['S5'] + nuevas_notas['S6']) / 3
+                        c6, c7, c8, c9, c10 = st.columns(5)
+                        nuevas_notas['S6'] = c6.number_input("Sem 6", 0.0, 10.0, notas_actuales['S6'], key="s6", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S7'] = c7.number_input("Sem 7", 0.0, 10.0, notas_actuales['S7'], key="s7", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S8'] = c8.number_input("Sem 8", 0.0, 10.0, notas_actuales['S8'], key="s8", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S9'] = c9.number_input("Sem 9", 0.0, 10.0, notas_actuales['S9'], key="s9", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S10'] = c10.number_input("Sem 10", 0.0, 10.0, notas_actuales['S10'], key="s10", disabled=not puede_editar_este_alumno)
+                        prom_u2 = (nuevas_notas['S6'] + nuevas_notas['S7'] + nuevas_notas['S8'] + nuevas_notas['S9'] + nuevas_notas['S10']) / 5
                         st.info(f"📊 Prom U2: {prom_u2:.2f}")
 
                     with tab_u3:
-                        c7, c8, c9 = st.columns(3)
-                        nuevas_notas['S7'] = c7.number_input("Semana 7", 0.0, 10.0, notas_actuales['S7'], key="s7", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S8'] = c8.number_input("Semana 8", 0.0, 10.0, notas_actuales['S8'], key="s8", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S9'] = c9.number_input("Semana 9", 0.0, 10.0, notas_actuales['S9'], key="s9", disabled=not puede_editar_este_alumno)
-                        prom_u3 = (nuevas_notas['S7'] + nuevas_notas['S8'] + nuevas_notas['S9']) / 3
+                        c11, c12, c13, c14, c15 = st.columns(5)
+                        nuevas_notas['S11'] = c11.number_input("Sem 11", 0.0, 10.0, notas_actuales['S11'], key="s11", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S12'] = c12.number_input("Sem 12", 0.0, 10.0, notas_actuales['S12'], key="s12", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S13'] = c13.number_input("Sem 13", 0.0, 10.0, notas_actuales['S13'], key="s13", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S14'] = c14.number_input("Sem 14", 0.0, 10.0, notas_actuales['S14'], key="s14", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S15'] = c15.number_input("Sem 15", 0.0, 10.0, notas_actuales['S15'], key="s15", disabled=not puede_editar_este_alumno)
+                        prom_u3 = (nuevas_notas['S11'] + nuevas_notas['S12'] + nuevas_notas['S13'] + nuevas_notas['S14'] + nuevas_notas['S15']) / 5
                         st.info(f"📊 Prom U3: {prom_u3:.2f}")
                     
                     promedio_final = (prom_u1 + prom_u2 + prom_u3) / 3

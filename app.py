@@ -168,8 +168,9 @@ if seleccion == "📊 Ver Resumen General":
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_calif.to_excel(writer, index=False, sheet_name='Reporte_Calificaciones')
                 
-                # --- MAGIA PARA AUTO-AJUSTAR COLUMNAS ---
                 worksheet = writer.sheets['Reporte_Calificaciones']
+                
+                # --- MAGIA 1: AUTO-AJUSTAR COLUMNAS ---
                 for col in worksheet.columns:
                     max_length = 0
                     col_letter = col[0].column_letter 
@@ -180,6 +181,13 @@ if seleccion == "📊 Ver Resumen General":
                         except:
                             pass
                     worksheet.column_dimensions[col_letter].width = max_length + 2
+
+                # --- MAGIA 2: INYECTAR FÓRMULAS DE EXCEL ---
+                for row_num in range(2, len(df_calif) + 2):
+                    worksheet[f'U{row_num}'] = f'=AVERAGE(F{row_num}:J{row_num})'
+                    worksheet[f'V{row_num}'] = f'=AVERAGE(K{row_num}:O{row_num})'
+                    worksheet[f'W{row_num}'] = f'=AVERAGE(P{row_num}:T{row_num})'
+                    worksheet[f'X{row_num}'] = f'=AVERAGE(U{row_num}:W{row_num})'
             
             st.download_button(
                 label="📊 Descargar Excel Completo",
@@ -204,8 +212,9 @@ if seleccion == "📊 Ver Resumen General":
                 with pd.ExcelWriter(buffer_auditoria, engine='openpyxl') as writer:
                     df_historial.to_excel(writer, index=False, sheet_name='Auditoria_Eliminados')
                     
-                    # --- MAGIA PARA AUTO-AJUSTAR COLUMNAS ---
                     worksheet = writer.sheets['Auditoria_Eliminados']
+                    
+                    # --- MAGIA 1: AUTO-AJUSTAR COLUMNAS ---
                     for col in worksheet.columns:
                         max_length = 0
                         col_letter = col[0].column_letter 
@@ -216,6 +225,13 @@ if seleccion == "📊 Ver Resumen General":
                             except:
                                 pass
                         worksheet.column_dimensions[col_letter].width = max_length + 2
+
+                    # --- MAGIA 2: INYECTAR FÓRMULAS DE EXCEL ---
+                    for row_num in range(2, len(df_historial) + 2):
+                        worksheet[f'U{row_num}'] = f'=AVERAGE(F{row_num}:J{row_num})'
+                        worksheet[f'V{row_num}'] = f'=AVERAGE(K{row_num}:O{row_num})'
+                        worksheet[f'W{row_num}'] = f'=AVERAGE(P{row_num}:T{row_num})'
+                        worksheet[f'X{row_num}'] = f'=AVERAGE(U{row_num}:W{row_num})'
                 
                 st.download_button(
                     label="🕵️ Descargar Bitácora de Auditoría",
@@ -247,8 +263,9 @@ if seleccion == "📊 Ver Resumen General":
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df_calif_export.to_excel(writer, index=False, sheet_name='Reporte_Calificaciones')
                     
-                    # --- MAGIA PARA AUTO-AJUSTAR COLUMNAS ---
                     worksheet = writer.sheets['Reporte_Calificaciones']
+                    
+                    # --- MAGIA 1: AUTO-AJUSTAR COLUMNAS ---
                     for col in worksheet.columns:
                         max_length = 0
                         col_letter = col[0].column_letter 
@@ -259,6 +276,13 @@ if seleccion == "📊 Ver Resumen General":
                             except:
                                 pass
                         worksheet.column_dimensions[col_letter].width = max_length + 2
+
+                    # --- MAGIA 2: INYECTAR FÓRMULAS DE EXCEL ---
+                    for row_num in range(2, len(df_calif_export) + 2):
+                        worksheet[f'U{row_num}'] = f'=AVERAGE(F{row_num}:J{row_num})'
+                        worksheet[f'V{row_num}'] = f'=AVERAGE(K{row_num}:O{row_num})'
+                        worksheet[f'W{row_num}'] = f'=AVERAGE(P{row_num}:T{row_num})'
+                        worksheet[f'X{row_num}'] = f'=AVERAGE(U{row_num}:W{row_num})'
                 
                 def purgar_base_datos():
                     try:

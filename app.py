@@ -167,6 +167,19 @@ if seleccion == "📊 Ver Resumen General":
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_calif.to_excel(writer, index=False, sheet_name='Reporte_Calificaciones')
+                
+                # --- MAGIA PARA AUTO-AJUSTAR COLUMNAS ---
+                worksheet = writer.sheets['Reporte_Calificaciones']
+                for col in worksheet.columns:
+                    max_length = 0
+                    col_letter = col[0].column_letter 
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    worksheet.column_dimensions[col_letter].width = max_length + 2
             
             st.download_button(
                 label="📊 Descargar Excel Completo",
@@ -190,6 +203,19 @@ if seleccion == "📊 Ver Resumen General":
                 buffer_auditoria = io.BytesIO()
                 with pd.ExcelWriter(buffer_auditoria, engine='openpyxl') as writer:
                     df_historial.to_excel(writer, index=False, sheet_name='Auditoria_Eliminados')
+                    
+                    # --- MAGIA PARA AUTO-AJUSTAR COLUMNAS ---
+                    worksheet = writer.sheets['Auditoria_Eliminados']
+                    for col in worksheet.columns:
+                        max_length = 0
+                        col_letter = col[0].column_letter 
+                        for cell in col:
+                            try:
+                                if len(str(cell.value)) > max_length:
+                                    max_length = len(str(cell.value))
+                            except:
+                                pass
+                        worksheet.column_dimensions[col_letter].width = max_length + 2
                 
                 st.download_button(
                     label="🕵️ Descargar Bitácora de Auditoría",
@@ -220,6 +246,19 @@ if seleccion == "📊 Ver Resumen General":
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df_calif_export.to_excel(writer, index=False, sheet_name='Reporte_Calificaciones')
+                    
+                    # --- MAGIA PARA AUTO-AJUSTAR COLUMNAS ---
+                    worksheet = writer.sheets['Reporte_Calificaciones']
+                    for col in worksheet.columns:
+                        max_length = 0
+                        col_letter = col[0].column_letter 
+                        for cell in col:
+                            try:
+                                if len(str(cell.value)) > max_length:
+                                    max_length = len(str(cell.value))
+                            except:
+                                pass
+                        worksheet.column_dimensions[col_letter].width = max_length + 2
                 
                 def purgar_base_datos():
                     try:

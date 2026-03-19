@@ -50,8 +50,8 @@ if not st.session_state['logueado']:
                         "rol": "editor", 
                         "carreras": ["TSU. MERCADOTECNIA", "LIC. NEGOCIOS Y MERCADOTECNIA "]
                     },
-                    "coord_tics": {
-                        "pass": "tics123", 
+                    "SEMS_tics": {
+                        "pass": "SEMS2026", 
                         "rol": "editor", 
                         "carreras": ["TSU. DESARROLLO DE SOFTWARE MULTIPLATAFORMA", "LIC. INGENIERÍA EN TECNOLOGÍAS DE LA INFORMACIÓN E INNOVACIÓN DIGITAL"]
                     },

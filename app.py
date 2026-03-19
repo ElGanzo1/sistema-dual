@@ -13,7 +13,6 @@ st.set_page_config(
     page_icon="🎓", 
     layout="wide"
 )
-
 # 🚀 AQUI VA TU CONTRASEÑA DE POSTGRESQL 🚀
 CADENA_CONEXION = st.secrets["CONEXION_BD"]
 engine = create_engine(CADENA_CONEXION)
@@ -431,8 +430,7 @@ else:
             if st.button("💾 Actualizar Maestros"):
                 try:
                     with engine.begin() as conn:
-                        conn.execute(text("DELETE FROM asignacion_maestros WHERE carrera = :c AND cuatrimestre = :cu"), {"c": alumno['Carrera'], "cu": alumno['Cuatrimestre']})
-                    
+                        conn.execute(text("DELETE FROM asignacion_maestros WHERE carrera = :c AND cuatrimestre = :cu"), {"c": alumno['Carrera'], "cu": int(alumno['Cuatrimestre'])})                    
                     df_to_save = cambios_maestros.copy()
                     df_to_save.columns = df_to_save.columns.str.lower()
                     df_to_save.to_sql('asignacion_maestros', engine, if_exists='append', index=False)

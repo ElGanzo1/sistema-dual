@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import time 
 import io
+import datetime # <-- NUEVA LIBRERÍA PARA LA HORA EXACTA
 from sqlalchemy import create_engine, text
 
 # ---------------------------------------------------------
@@ -24,6 +25,7 @@ if 'logueado' not in st.session_state:
     st.session_state['logueado'] = False
     st.session_state['rol'] = None  
     st.session_state['carreras_permitidas'] = [] 
+    st.session_state['usuario_actual'] = None # <-- RASTREADOR DE USUARIO
 
 if not st.session_state['logueado']:
     st.write("")
@@ -67,12 +69,13 @@ if not st.session_state['logueado']:
                     st.session_state['logueado'] = True
                     st.session_state['rol'] = usuarios_validos[usuario]["rol"] 
                     st.session_state['carreras_permitidas'] = usuarios_validos[usuario]["carreras"]
+                    st.session_state['usuario_actual'] = usuario # <-- GUARDAMOS QUIÉN ENTRÓ
                     st.rerun()
                 else:
                     st.error("❌ Datos incorrectos")
     st.stop() 
 
-st.sidebar.button("🔒 Cerrar Sesión", on_click=lambda: st.session_state.update({'logueado': False, 'rol': None, 'carreras_permitidas': []}))
+st.sidebar.button("🔒 Cerrar Sesión", on_click=lambda: st.session_state.update({'logueado': False, 'rol': None, 'carreras_permitidas': [], 'usuario_actual': None}))
 
 es_editor = st.session_state['rol'] == 'editor'
 carreras_permitidas = st.session_state['carreras_permitidas']
@@ -99,7 +102,6 @@ def cargar_datos():
         map_maestros = {'carrera': 'Carrera', 'cuatrimestre': 'Cuatrimestre', 'nombre_materia': 'Nombre_Materia', 'nombre_maestro': 'Nombre_Maestro'}
         df_maestros.rename(columns=map_maestros, inplace=True)
 
-        # AGREGAMOS DE LA s10 A LA s15 AQUÍ
         map_calif = {'matricula': 'Matricula', 'nombre_completo': 'Nombre_Completo', 'cuatrimestre': 'Cuatrimestre', 'nombre_maestro': 'Nombre_Maestro', 'materia': 'Materia', 's1': 'S1', 's2': 'S2', 's3': 'S3', 's4': 'S4', 's5': 'S5', 's6': 'S6', 's7': 'S7', 's8': 'S8', 's9': 'S9', 's10': 'S10', 's11': 'S11', 's12': 'S12', 's13': 'S13', 's14': 'S14', 's15': 'S15', 'u1': 'U1', 'u2': 'U2', 'u3': 'U3', 'promedio_final': 'Promedio_Final'}
         df_calif.rename(columns=map_calif, inplace=True)
 
@@ -174,6 +176,32 @@ if seleccion == "📊 Ver Resumen General":
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 type="primary"
             )
+            
+        st.divider()
+        st.subheader("🕵️ Panel de Auditoría (Exclusivo Dirección)")
+        st.write("Descarga la bitácora de registros eliminados para revisar quién realizó los cortes de ciclo y en qué momento.")
+        
+        try:
+            # Traemos la tabla de historial solo si el admin hace clic en este botón
+            df_historial = pd.read_sql_table('historial_calificaciones', engine)
+            
+            if df_historial.empty:
+                st.info("No hay registros en la bitácora de auditoría. Aún no se han borrado calificaciones.")
+            else:
+                buffer_auditoria = io.BytesIO()
+                with pd.ExcelWriter(buffer_auditoria, engine='openpyxl') as writer:
+                    df_historial.to_excel(writer, index=False, sheet_name='Auditoria_Eliminados')
+                
+                st.download_button(
+                    label="🕵️ Descargar Bitácora de Auditoría",
+                    data=buffer_auditoria.getvalue(),
+                    file_name=f"Auditoria_Dual_{time.strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="secondary"
+                )
+        except Exception as e:
+            st.info("La tabla de historial aún no ha sido creada o está vacía. Se creará en cuanto un coordinador borre un registro.")
+
     else:
         st.subheader("📥 Exportación y Corte de Ciclo")
         st.write("Genera el reporte de calificaciones de las carreras a tu cargo.")
@@ -185,7 +213,7 @@ if seleccion == "📊 Ver Resumen General":
         if df_calif_export.empty:
             st.info("Aún no hay calificaciones registradas para las carreras a tu cargo.")
         else:
-            st.warning("⚠️ **ATENCIÓN EDITOR:** Al descargar este archivo, las calificaciones de tus alumnos se **eliminarán** de la base de datos para iniciar el nuevo ciclo. Esta acción es irreversible.")
+            st.warning("⚠️ **ATENCIÓN EDITOR:** Al descargar este archivo, las calificaciones de tus alumnos se **eliminarán** de la base de datos para iniciar el nuevo ciclo. Esta acción es irreversible y quedará registrada en el sistema de auditoría.")
             
             check_purga = st.checkbox("Entiendo la advertencia y confirmo el corte de ciclo.")
             
@@ -196,12 +224,25 @@ if seleccion == "📊 Ver Resumen General":
                 
                 def purgar_base_datos():
                     try:
+                        # 1. Creamos la copia de los datos
+                        df_historial = df_calif_export.copy()
+                        
+                        # 2. Le pegamos el usuario y la fecha
+                        df_historial['eliminado_por'] = st.session_state.get('usuario_actual', 'Desconocido')
+                        df_historial['fecha_eliminacion'] = datetime.datetime.now()
+                        
+                        # 3. Guardamos la copia en la bóveda
+                        df_historial.columns = df_historial.columns.str.lower()
+                        df_historial.to_sql('historial_calificaciones', engine, if_exists='append', index=False)
+
+                        # 4. Procedemos a borrar de la tabla principal
                         with engine.begin() as conn:
                             for mat in matriculas_a_borrar:
                                 conn.execute(text("DELETE FROM calificaciones WHERE matricula = :m"), {"m": mat})
+                                
                         st.cache_data.clear()
                     except Exception as e:
-                        pass 
+                        st.error(f"❌ Error al respaldar en auditoría: {e}")
                 
                 st.download_button(
                     label="📊 Descargar Excel y Limpiar Registros",
@@ -270,7 +311,6 @@ else:
                         (df_calif['Materia'] == materia_activa)
                     ]
                     notas_actuales = {}
-                    # AHORA REVISA HASTA LA SEMANA 15
                     for i in range(1, 16):
                         col_name = f"S{i}"
                         if not calif_existente.empty and col_name in calif_existente.columns:

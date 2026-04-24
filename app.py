@@ -244,8 +244,8 @@ if seleccion == "📊 Ver Resumen General":
             st.info("La tabla de historial aún no ha sido creada o está vacía. Se creará en cuanto un coordinador borre un registro.")
 
     else:
-        st.subheader("📥 Exportación y Corte de Ciclo")
-        st.write("Genera el reporte de calificaciones de las carreras a tu cargo.")
+        st.subheader("📥 Exportación de Calificaciones")
+        st.write("Genera y descarga el reporte de calificaciones de las carreras a tu cargo sin modificar la base de datos.")
         
         matriculas_permitidas = df_alumnos[df_alumnos['Carrera'].isin(carreras_permitidas)]['Matricula'].tolist()
         df_calif_export = df_calif[df_calif['Matricula'].isin(matriculas_permitidas)]
@@ -254,37 +254,50 @@ if seleccion == "📊 Ver Resumen General":
         if df_calif_export.empty:
             st.info("Aún no hay calificaciones registradas para las carreras a tu cargo.")
         else:
-            st.warning("⚠️ **ATENCIÓN EDITOR:** Al descargar este archivo, las calificaciones de tus alumnos se **eliminarán** de la base de datos para iniciar el nuevo ciclo. Esta acción es irreversible y quedará registrada en el sistema de auditoría.")
+            # --- SECCIÓN DE DESCARGA (SEGURA) ---
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_calif_export.to_excel(writer, index=False, sheet_name='Reporte_Calificaciones')
+                
+                worksheet = writer.sheets['Reporte_Calificaciones']
+                
+                # --- MAGIA 1: AUTO-AJUSTAR COLUMNAS ---
+                for col in worksheet.columns:
+                    max_length = 0
+                    col_letter = col[0].column_letter 
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    worksheet.column_dimensions[col_letter].width = max_length + 2
+
+                # --- MAGIA 2: INYECTAR FÓRMULAS DE EXCEL ---
+                for row_num in range(2, len(df_calif_export) + 2):
+                    worksheet[f'U{row_num}'] = f'=AVERAGE(F{row_num}:J{row_num})'
+                    worksheet[f'V{row_num}'] = f'=AVERAGE(K{row_num}:O{row_num})'
+                    worksheet[f'W{row_num}'] = f'=AVERAGE(P{row_num}:T{row_num})'
+                    worksheet[f'X{row_num}'] = f'=AVERAGE(U{row_num}:W{row_num})'
             
-            check_purga = st.checkbox("Entiendo la advertencia y confirmo el corte de ciclo.")
+            st.download_button(
+                label="📊 Descargar Excel de mis carreras",
+                data=buffer.getvalue(),
+                file_name=f"Reporte_Dual_{time.strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary"
+            )
+
+            st.divider()
+            
+            # --- SECCIÓN DE BORRADO INDEPENDIENTE ---
+            st.subheader("⚠️ Corte de Ciclo (Borrar Registros)")
+            st.warning("Al confirmar esta acción, las calificaciones de **tus carreras asignadas** se eliminarán permanentemente de la base de datos para iniciar un nuevo ciclo. Quedará un respaldo en la bitácora de auditoría.")
+            
+            check_purga = st.checkbox("Entiendo la advertencia y confirmo el corte de ciclo para mis carreras.")
             
             if check_purga:
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_calif_export.to_excel(writer, index=False, sheet_name='Reporte_Calificaciones')
-                    
-                    worksheet = writer.sheets['Reporte_Calificaciones']
-                    
-                    # --- MAGIA 1: AUTO-AJUSTAR COLUMNAS ---
-                    for col in worksheet.columns:
-                        max_length = 0
-                        col_letter = col[0].column_letter 
-                        for cell in col:
-                            try:
-                                if len(str(cell.value)) > max_length:
-                                    max_length = len(str(cell.value))
-                            except:
-                                pass
-                        worksheet.column_dimensions[col_letter].width = max_length + 2
-
-                    # --- MAGIA 2: INYECTAR FÓRMULAS DE EXCEL ---
-                    for row_num in range(2, len(df_calif_export) + 2):
-                        worksheet[f'U{row_num}'] = f'=AVERAGE(F{row_num}:J{row_num})'
-                        worksheet[f'V{row_num}'] = f'=AVERAGE(K{row_num}:O{row_num})'
-                        worksheet[f'W{row_num}'] = f'=AVERAGE(P{row_num}:T{row_num})'
-                        worksheet[f'X{row_num}'] = f'=AVERAGE(U{row_num}:W{row_num})'
-                
-                def purgar_base_datos():
+                if st.button("🗑️ Realizar Corte de Ciclo (Borrar Calificaciones)", type="primary"):
                     try:
                         # 1. Creamos la copia de los datos
                         df_historial = df_calif_export.copy()
@@ -302,18 +315,12 @@ if seleccion == "📊 Ver Resumen General":
                             for mat in matriculas_a_borrar:
                                 conn.execute(text("DELETE FROM calificaciones WHERE matricula = :m"), {"m": mat})
                                 
+                        st.success("✅ Corte de ciclo realizado. Calificaciones borradas exitosamente.")
                         st.cache_data.clear()
+                        time.sleep(1.5)
+                        st.rerun()
                     except Exception as e:
                         st.error(f"❌ Error al respaldar en auditoría: {e}")
-                
-                st.download_button(
-                    label="📊 Descargar Excel y Limpiar Registros",
-                    data=buffer.getvalue(),
-                    file_name=f"Corte_Dual_{time.strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary",
-                    on_click=purgar_base_datos
-                )
 
 else:
     matricula_actual = int(seleccion.split(" - ")[0])
@@ -358,7 +365,11 @@ else:
     tab_empresa, tab_uni, tab_maestros, tab_editar = st.tabs(["🏢 Calificaciones Empresa", "🏫 Evalúa Universidad", "👨‍🏫 Asignación de Maestros", "✏️ Editar Alumno"])
 
     with tab_empresa:
-        if not materias_empresa:
+        # --- LÓGICA DE ESTADÍAS ---
+        if int(alumno['Cuatrimestre']) in [6, 10]:
+            st.success("💼 **ESTADO: EN ESTADÍAS (Prácticas Profesionales)**")
+            st.info("El alumno se encuentra enfocado al 100% en su proyecto dentro de la empresa. No se requiere captura de calificaciones semanales en este cuatrimestre.")
+        elif not materias_empresa:
             st.info("Este alumno no tiene materias asignadas a la empresa.")
         else:
             col_lista, col_panel = st.columns([1, 2])
@@ -387,33 +398,36 @@ else:
                     tab_u1, tab_u2, tab_u3 = st.tabs(["U1 (Sem 1-5)", "U2 (Sem 6-10)", "U3 (Sem 11-15)"])
                     nuevas_notas = {}
                     
+                    # LLAVE MAGICA PARA QUE STREAMLIT NO SE CONFUNDA DE ALUMNO
+                    llave_unica = f"{matricula_actual}_{materia_activa}"
+                    
                     with tab_u1:
                         c1, c2, c3, c4, c5 = st.columns(5)
-                        nuevas_notas['S1'] = c1.number_input("Sem 1", 0.0, 10.0, notas_actuales['S1'], key="s1", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S2'] = c2.number_input("Sem 2", 0.0, 10.0, notas_actuales['S2'], key="s2", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S3'] = c3.number_input("Sem 3", 0.0, 10.0, notas_actuales['S3'], key="s3", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S4'] = c4.number_input("Sem 4", 0.0, 10.0, notas_actuales['S4'], key="s4", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S5'] = c5.number_input("Sem 5", 0.0, 10.0, notas_actuales['S5'], key="s5", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S1'] = c1.number_input("Sem 1", 0.0, 10.0, notas_actuales['S1'], key=f"s1_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S2'] = c2.number_input("Sem 2", 0.0, 10.0, notas_actuales['S2'], key=f"s2_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S3'] = c3.number_input("Sem 3", 0.0, 10.0, notas_actuales['S3'], key=f"s3_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S4'] = c4.number_input("Sem 4", 0.0, 10.0, notas_actuales['S4'], key=f"s4_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S5'] = c5.number_input("Sem 5", 0.0, 10.0, notas_actuales['S5'], key=f"s5_{llave_unica}", disabled=not puede_editar_este_alumno)
                         prom_u1 = (nuevas_notas['S1'] + nuevas_notas['S2'] + nuevas_notas['S3'] + nuevas_notas['S4'] + nuevas_notas['S5']) / 5
                         st.info(f"📊 Prom U1: {prom_u1:.2f}")
 
                     with tab_u2:
                         c6, c7, c8, c9, c10 = st.columns(5)
-                        nuevas_notas['S6'] = c6.number_input("Sem 6", 0.0, 10.0, notas_actuales['S6'], key="s6", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S7'] = c7.number_input("Sem 7", 0.0, 10.0, notas_actuales['S7'], key="s7", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S8'] = c8.number_input("Sem 8", 0.0, 10.0, notas_actuales['S8'], key="s8", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S9'] = c9.number_input("Sem 9", 0.0, 10.0, notas_actuales['S9'], key="s9", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S10'] = c10.number_input("Sem 10", 0.0, 10.0, notas_actuales['S10'], key="s10", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S6'] = c6.number_input("Sem 6", 0.0, 10.0, notas_actuales['S6'], key=f"s6_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S7'] = c7.number_input("Sem 7", 0.0, 10.0, notas_actuales['S7'], key=f"s7_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S8'] = c8.number_input("Sem 8", 0.0, 10.0, notas_actuales['S8'], key=f"s8_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S9'] = c9.number_input("Sem 9", 0.0, 10.0, notas_actuales['S9'], key=f"s9_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S10'] = c10.number_input("Sem 10", 0.0, 10.0, notas_actuales['S10'], key=f"s10_{llave_unica}", disabled=not puede_editar_este_alumno)
                         prom_u2 = (nuevas_notas['S6'] + nuevas_notas['S7'] + nuevas_notas['S8'] + nuevas_notas['S9'] + nuevas_notas['S10']) / 5
                         st.info(f"📊 Prom U2: {prom_u2:.2f}")
 
                     with tab_u3:
                         c11, c12, c13, c14, c15 = st.columns(5)
-                        nuevas_notas['S11'] = c11.number_input("Sem 11", 0.0, 10.0, notas_actuales['S11'], key="s11", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S12'] = c12.number_input("Sem 12", 0.0, 10.0, notas_actuales['S12'], key="s12", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S13'] = c13.number_input("Sem 13", 0.0, 10.0, notas_actuales['S13'], key="s13", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S14'] = c14.number_input("Sem 14", 0.0, 10.0, notas_actuales['S14'], key="s14", disabled=not puede_editar_este_alumno)
-                        nuevas_notas['S15'] = c15.number_input("Sem 15", 0.0, 10.0, notas_actuales['S15'], key="s15", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S11'] = c11.number_input("Sem 11", 0.0, 10.0, notas_actuales['S11'], key=f"s11_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S12'] = c12.number_input("Sem 12", 0.0, 10.0, notas_actuales['S12'], key=f"s12_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S13'] = c13.number_input("Sem 13", 0.0, 10.0, notas_actuales['S13'], key=f"s13_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S14'] = c14.number_input("Sem 14", 0.0, 10.0, notas_actuales['S14'], key=f"s14_{llave_unica}", disabled=not puede_editar_este_alumno)
+                        nuevas_notas['S15'] = c15.number_input("Sem 15", 0.0, 10.0, notas_actuales['S15'], key=f"s15_{llave_unica}", disabled=not puede_editar_este_alumno)
                         prom_u3 = (nuevas_notas['S11'] + nuevas_notas['S12'] + nuevas_notas['S13'] + nuevas_notas['S14'] + nuevas_notas['S15']) / 5
                         st.info(f"📊 Prom U3: {prom_u3:.2f}")
                     
@@ -462,11 +476,16 @@ else:
                         st.info("👀 MODO LECTURA: No tienes asignada esta carrera para poder calificar.")
 
     with tab_uni:
-        st.subheader("🏫 Materias Evaluadas por Universidad")
-        if materias_escuela:
-            st.table(pd.DataFrame(materias_escuela, columns=["Materia"]))
+        # --- LÓGICA DE ESTADÍAS ---
+        if int(alumno['Cuatrimestre']) in [6, 10]:
+            st.success("🎓 **PERIODO DE TITULACIÓN / ESTADÍAS**")
+            st.info("Durante este cuatrimestre el alumno no cursa materias regulares en la universidad, toda la evaluación recae en la liberación de su proyecto.")
         else:
-            st.success("¡Todo se evalúa en la empresa!")
+            st.subheader("🏫 Materias Evaluadas por Universidad")
+            if materias_escuela:
+                st.table(pd.DataFrame(materias_escuela, columns=["Materia"]))
+            else:
+                st.success("¡Todo se evalúa en la empresa!")
 
     with tab_maestros:
         st.subheader(f"👨‍🏫 Plantilla Docente: {alumno['Carrera']} - {alumno['Cuatrimestre']}° Cuatrimestre")

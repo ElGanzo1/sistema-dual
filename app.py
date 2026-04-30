@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import time 
 import io
-import datetime # <-- NUEVA LIBRERÍA PARA LA HORA EXACTA
+import os # <-- NUEVA LIBRERÍA PARA GUARDAR IMÁGENES
+import datetime 
 from sqlalchemy import create_engine, text
 
 # ---------------------------------------------------------
@@ -24,7 +25,7 @@ if 'logueado' not in st.session_state:
     st.session_state['logueado'] = False
     st.session_state['rol'] = None  
     st.session_state['carreras_permitidas'] = [] 
-    st.session_state['usuario_actual'] = None # <-- RASTREADOR DE USUARIO
+    st.session_state['usuario_actual'] = None 
 
 if not st.session_state['logueado']:
     st.write("")
@@ -68,7 +69,7 @@ if not st.session_state['logueado']:
                     st.session_state['logueado'] = True
                     st.session_state['rol'] = usuarios_validos[usuario]["rol"] 
                     st.session_state['carreras_permitidas'] = usuarios_validos[usuario]["carreras"]
-                    st.session_state['usuario_actual'] = usuario # <-- GUARDAMOS QUIÉN ENTRÓ
+                    st.session_state['usuario_actual'] = usuario 
                     st.rerun()
                 else:
                     st.error("❌ Datos incorrectos")
@@ -214,7 +215,6 @@ if seleccion == "📊 Ver Resumen General":
                     
                     worksheet = writer.sheets['Auditoria_Eliminados']
                     
-                    # --- MAGIA 1: AUTO-AJUSTAR COLUMNAS ---
                     for col in worksheet.columns:
                         max_length = 0
                         col_letter = col[0].column_letter 
@@ -226,7 +226,6 @@ if seleccion == "📊 Ver Resumen General":
                                 pass
                         worksheet.column_dimensions[col_letter].width = max_length + 2
 
-                    # --- MAGIA 2: INYECTAR FÓRMULAS DE EXCEL ---
                     for row_num in range(2, len(df_historial) + 2):
                         worksheet[f'U{row_num}'] = f'=AVERAGE(F{row_num}:J{row_num})'
                         worksheet[f'V{row_num}'] = f'=AVERAGE(K{row_num}:O{row_num})'
@@ -254,14 +253,12 @@ if seleccion == "📊 Ver Resumen General":
         if df_calif_export.empty:
             st.info("Aún no hay calificaciones registradas para las carreras a tu cargo.")
         else:
-            # --- SECCIÓN DE DESCARGA (SEGURA) ---
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_calif_export.to_excel(writer, index=False, sheet_name='Reporte_Calificaciones')
                 
                 worksheet = writer.sheets['Reporte_Calificaciones']
                 
-                # --- MAGIA 1: AUTO-AJUSTAR COLUMNAS ---
                 for col in worksheet.columns:
                     max_length = 0
                     col_letter = col[0].column_letter 
@@ -273,7 +270,6 @@ if seleccion == "📊 Ver Resumen General":
                             pass
                     worksheet.column_dimensions[col_letter].width = max_length + 2
 
-                # --- MAGIA 2: INYECTAR FÓRMULAS DE EXCEL ---
                 for row_num in range(2, len(df_calif_export) + 2):
                     worksheet[f'U{row_num}'] = f'=AVERAGE(F{row_num}:J{row_num})'
                     worksheet[f'V{row_num}'] = f'=AVERAGE(K{row_num}:O{row_num})'
@@ -290,7 +286,6 @@ if seleccion == "📊 Ver Resumen General":
 
             st.divider()
             
-            # --- SECCIÓN DE BORRADO INDEPENDIENTE ---
             st.subheader("⚠️ Corte de Ciclo (Borrar Registros)")
             st.warning("Al confirmar esta acción, las calificaciones de **tus carreras asignadas** se eliminarán permanentemente de la base de datos para iniciar un nuevo ciclo. Quedará un respaldo en la bitácora de auditoría.")
             
@@ -299,18 +294,13 @@ if seleccion == "📊 Ver Resumen General":
             if check_purga:
                 if st.button("🗑️ Realizar Corte de Ciclo (Borrar Calificaciones)", type="primary"):
                     try:
-                        # 1. Creamos la copia de los datos
                         df_historial = df_calif_export.copy()
-                        
-                        # 2. Le pegamos el usuario y la fecha
                         df_historial['eliminado_por'] = st.session_state.get('usuario_actual', 'Desconocido')
                         df_historial['fecha_eliminacion'] = datetime.datetime.now()
                         
-                        # 3. Guardamos la copia en la bóveda
                         df_historial.columns = df_historial.columns.str.lower()
                         df_historial.to_sql('historial_calificaciones', engine, if_exists='append', index=False)
 
-                        # 4. Procedemos a borrar de la tabla principal
                         with engine.begin() as conn:
                             for mat in matriculas_a_borrar:
                                 conn.execute(text("DELETE FROM calificaciones WHERE matricula = :m"), {"m": mat})
@@ -362,10 +352,10 @@ else:
 
     materias_escuela = [m for m in todas_las_materias if m not in materias_empresa]
 
-    tab_empresa, tab_uni, tab_maestros, tab_editar = st.tabs(["🏢 Calificaciones Empresa", "🏫 Evalúa Universidad", "👨‍🏫 Asignación de Maestros", "✏️ Editar Alumno"])
+    # --- CAMBIO DE NOMBRE EN LA PESTAÑA 2 ---
+    tab_empresa, tab_horario, tab_maestros, tab_editar = st.tabs(["🏢 Calificaciones Empresa", "📅 Horario Escolar", "👨‍🏫 Asignación de Maestros", "✏️ Editar Alumno"])
 
     with tab_empresa:
-        # --- LÓGICA DE ESTADÍAS ---
         if int(alumno['Cuatrimestre']) in [6, 10]:
             st.success("💼 **ESTADO: EN ESTADÍAS (Prácticas Profesionales)**")
             st.info("El alumno se encuentra enfocado al 100% en su proyecto dentro de la empresa. No se requiere captura de calificaciones semanales en este cuatrimestre.")
@@ -398,7 +388,6 @@ else:
                     tab_u1, tab_u2, tab_u3 = st.tabs(["U1 (Sem 1-5)", "U2 (Sem 6-10)", "U3 (Sem 11-15)"])
                     nuevas_notas = {}
                     
-                    # LLAVE MAGICA PARA QUE STREAMLIT NO SE CONFUNDA DE ALUMNO
                     llave_unica = f"{matricula_actual}_{materia_activa}"
                     
                     with tab_u1:
@@ -475,17 +464,41 @@ else:
                     else:
                         st.info("👀 MODO LECTURA: No tienes asignada esta carrera para poder calificar.")
 
-    with tab_uni:
-        # --- LÓGICA DE ESTADÍAS ---
-        if int(alumno['Cuatrimestre']) in [6, 10]:
-            st.success("🎓 **PERIODO DE TITULACIÓN / ESTADÍAS**")
-            st.info("Durante este cuatrimestre el alumno no cursa materias regulares en la universidad, toda la evaluación recae en la liberación de su proyecto.")
+    # --- NUEVA LÓGICA DE LA PESTAÑA DEL HORARIO ---
+    with tab_horario:
+        st.subheader("📅 Horario del Alumno")
+        
+        # Le decimos a Python que cree la carpeta "horarios" si es que aún no existe
+        os.makedirs("horarios", exist_ok=True)
+        
+        # Definimos cómo se va a llamar el archivo (ejemplo: horario_30200000.png)
+        ruta_horario = f"horarios/horario_{matricula_actual}.png"
+        
+        # Mostramos la imagen si es que existe
+        if os.path.exists(ruta_horario):
+            st.image(ruta_horario, use_container_width=True)
+            
+            if puede_editar_este_alumno:
+                if st.button("🗑️ Eliminar Horario actual"):
+                    os.remove(ruta_horario)
+                    st.rerun()
         else:
-            st.subheader("🏫 Materias Evaluadas por Universidad")
-            if materias_escuela:
-                st.table(pd.DataFrame(materias_escuela, columns=["Materia"]))
-            else:
-                st.success("¡Todo se evalúa en la empresa!")
+            st.info("No hay ningún horario guardado para este alumno.")
+            
+        # Si tiene permisos, le mostramos la caja para subir imágenes
+        if puede_editar_este_alumno:
+            st.divider()
+            st.markdown("**Subir o actualizar horario**")
+            archivo_subido = st.file_uploader("Sube la imagen del horario (PNG o JPG)", type=["png", "jpg", "jpeg"], key=f"up_{matricula_actual}")
+            
+            if archivo_subido is not None:
+                if st.button("💾 Guardar Horario", type="primary"):
+                    # Guardamos físicamente la imagen en la carpeta
+                    with open(ruta_horario, "wb") as f:
+                        f.write(archivo_subido.getbuffer())
+                    st.success("✅ Horario guardado correctamente.")
+                    time.sleep(1)
+                    st.rerun()
 
     with tab_maestros:
         st.subheader(f"👨‍🏫 Plantilla Docente: {alumno['Carrera']} - {alumno['Cuatrimestre']}° Cuatrimestre")
